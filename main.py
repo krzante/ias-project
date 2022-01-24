@@ -9,6 +9,23 @@ from asteval import Interpreter
 import json
 import sys
 
+import random
+import pyxb
+
+# from collections.abc import MutableSequence
+from authorizenet import apicontractsv1
+from authorizenet.apicontrollers import createTransactionController
+from decimal import Decimal
+# import settings
+# import models
+
+# import imp
+from authorizenet import apicontractsv1
+from authorizenet.apicontrollers import *
+# constants = imp.load_source('modulename', 'constants.py')
+from decimal import *
+from datetime import *
+
 aeval = Interpreter()
 
 
@@ -458,27 +475,193 @@ calc_text.place(
     height = 36)
 ####################################################################################################
 
-# # Hotkeys not working when exported as exe
-# window.bind("<w>", on_press)
-# window.bind("<q>", on_press)
-# window.bind("<s>", on_press)
-# window.bind("<a>", on_press)
-# window.bind("<x>", on_press)
-# window.bind("<z>", on_press)
-# window.bind("<f>", on_press)
-# window.bind("<r>", on_press)
-# window.bind("<e>", on_press)
+def get_transaction_id():
+    return ''
 
-# window.bind("<W>", on_press)
-# window.bind("<Q>", on_press)
-# window.bind("<S>", on_press)
-# window.bind("<A>", on_press)
-# window.bind("<X>", on_press)
-# window.bind("<Z>", on_press)
-# window.bind("<F>", on_press)
-# window.bind("<R>", on_press)
-# window.bind("<E>", on_press)
 
+def get_api_login_id():
+    return ''
+
+
+class CreditCard:
+    number = None
+    expiration_date = None
+    code = None
+
+
+class TransactionResponse:
+    is_success = False
+    messages = []
+
+class CustomerInfo:
+    first_name = None
+    last_name = None
+    company = None
+    address = None
+    city = None
+    state = None
+    zip = None
+    country = None
+    
+
+##########################################################
+def charge_credit_card(amount, card, customer):
+    """
+    Charge a credit card
+    """
+
+    # Create a merchantAuthenticationType object with authentication details
+    # retrieved from the constants file
+    merchantAuth = apicontractsv1.merchantAuthenticationType()
+    merchantAuth.name = get_api_login_id()
+    merchantAuth.transactionKey = get_transaction_id()
+
+    # Create the payment data for a credit card
+    creditCard = apicontractsv1.creditCardType()
+    creditCard.cardNumber = card.number 
+    creditCard.expirationDate = card.expiration_date 
+    creditCard.cardCode = card.code
+
+    # Add the payment data to a paymentType object
+    payment = apicontractsv1.paymentType()
+    payment.creditCard = creditCard
+
+    # Create order information
+    order = apicontractsv1.orderType()
+    order.invoiceNumber = str(random.randint(1, 99999999999))
+    order.description = "Golf Shirts"
+
+    # Set the customer's Bill To address
+    customerAddress = apicontractsv1.customerAddressType()
+    customerAddress.firstName = customer.first_name 
+    customerAddress.lastName = customer.last_name 
+    customerAddress.company = customer.company
+    customerAddress.address = customer.address
+    customerAddress.city = customer.city
+    customerAddress.state = customer.state
+    customerAddress.zip = customer.zip
+    customerAddress.country = customer.country
+
+    # Set the customer's identifying information
+    customerData = apicontractsv1.customerDataType()
+    customerData.type = "individual"
+    customerData.id = "18467382746"
+    customerData.email = "EllenJohnson@example.com"
+
+    # Add values for transaction settings
+    duplicateWindowSetting = apicontractsv1.settingType()
+    duplicateWindowSetting.settingName = "duplicateWindow"
+    duplicateWindowSetting.settingValue = "600"
+    settings = apicontractsv1.ArrayOfSetting()
+    settings.setting.append(duplicateWindowSetting)
+
+    # setup individual line items
+    line_item_1 = apicontractsv1.lineItemType()
+    line_item_1.itemId = "12345"
+    line_item_1.name = "first"
+    line_item_1.description = "Here's the first line item"
+    line_item_1.quantity = "2"
+    line_item_1.unitPrice = "12.95"
+    line_item_2 = apicontractsv1.lineItemType()
+    line_item_2.itemId = "67890"
+    line_item_2.name = "second"
+    line_item_2.description = "Here's the second line item"
+    line_item_2.quantity = "3"
+    line_item_2.unitPrice = "7.95"
+
+    # build the array of line items
+    line_items = apicontractsv1.ArrayOfLineItem()
+    line_items.lineItem.append(line_item_1)
+    line_items.lineItem.append(line_item_2)
+
+    # Create a transactionRequestType object and add the previous objects to it.
+    transactionrequest = apicontractsv1.transactionRequestType()
+    transactionrequest.transactionType = "authCaptureTransaction"
+    transactionrequest.amount = amount
+    transactionrequest.payment = payment
+    transactionrequest.order = order
+    transactionrequest.billTo = customerAddress
+    transactionrequest.customer = customerData
+    transactionrequest.transactionSettings = settings
+    transactionrequest.lineItems = line_items
+
+    # Assemble the complete transaction request
+    createtransactionrequest = apicontractsv1.createTransactionRequest()
+    createtransactionrequest.merchantAuthentication = merchantAuth
+    createtransactionrequest.refId = "MerchantID-0001"
+    createtransactionrequest.transactionRequest = transactionrequest
+    # Create the controller
+    createtransactioncontroller = createTransactionController(
+        createtransactionrequest)
+    createtransactioncontroller.execute()
+
+    response = createtransactioncontroller.getresponse()
+
+    if response is not None:
+        # Check to see if the API request was successfully received and acted upon
+        if response.messages.resultCode == "Ok":
+            # Since the API request was successful, look for a transaction response
+            # and parse it to display the results of authorizing the card
+            if hasattr(response.transactionResponse, 'messages') is True:
+                print(
+                    'Successfully created transaction with Transaction ID: %s'
+                    % response.transactionResponse.transId)
+                print('Transaction Response Code: %s' %
+                      response.transactionResponse.responseCode)
+                print('Message Code: %s' %
+                      response.transactionResponse.messages.message[0].code)
+                print('Description: %s' % response.transactionResponse.
+                      messages.message[0].description)
+                print(customerAddress.firstName)
+                print(customerAddress.lastName)
+                
+            else:
+                print('Failed Transaction.')
+                if hasattr(response.transactionResponse, 'errors') is True:
+                    print('Error Code:  %s' % str(response.transactionResponse.
+                                                  errors.error[0].errorCode))
+                    print(
+                        'Error message: %s' %
+                        response.transactionResponse.errors.error[0].errorText)
+        # Or, print errors if the API request wasn't successful
+        else:
+            print('Failed Transaction.')
+            if hasattr(response, 'transactionResponse') is True and hasattr(
+                    response.transactionResponse, 'errors') is True:
+                print('Error Code: %s' % str(
+                    response.transactionResponse.errors.error[0].errorCode))
+                print('Error message: %s' %
+                      response.transactionResponse.errors.error[0].errorText)
+            else:
+                print('Error Code: %s' %
+                      response.messages.message[0]['code'].text)
+                print('Error message: %s' %
+                      response.messages.message[0]['text'].text)
+    else:
+        print('Null Response.')
+
+    return response
+############################################
+
+
+amount = "32"
+
+card = CreditCard()
+card.number = "4111111111111111" # visa test number https://developer.authorize.net/hello_world/testing_guide.html
+card.expiration_date = "2051-01" # any date in the future
+card.code = "133" # any 3 digit code
+
+customer = CustomerInfo()
+customer.first_name = ""
+customer.last_name = ""
+customer.address = ""
+customer.city = ""
+customer.state = ""
+customer.zip = ""
+customer.country = ""
+
+response = charge_credit_card(amount, card, customer)
+print(response.messages)
 
 tab2_load()
 window.resizable(False, False)
