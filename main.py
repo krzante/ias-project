@@ -10,7 +10,7 @@ import json
 import sys
 
 import random
-import pyxb
+
 
 # from collections.abc import MutableSequence
 from authorizenet import apicontractsv1
@@ -215,6 +215,7 @@ def tab2_load():
     calc_text.insert(1.0, tab2_calculation)
 
 
+
 pyglet.font.add_file('./fonts/AldotheApache.ttf')
 dflt_fnt = "Aldo the Apache"
 clr_white = "#ffffff"
@@ -238,6 +239,57 @@ nb.add(tab1, text="ENERGY")
 nb.add(tab2, text="WINRATE")
 nb.pack()
 
+def user_input():
+        
+
+    def close_window():
+        window.destroy()
+    
+    userInputs = dict()
+    def new_entry():
+        i = 0
+        for fields in textFields:
+            userInputs[labels[i]] = fields.get()
+            i = i+1
+        
+        print(userInputs)
+    
+    
+
+    #  New window for input
+    window = tk.Tk()
+    window.title('Game Recommendation Window')
+    window.geometry("1000x500")
+
+    # TITLE
+    lbl_0 = tk.Label(window, text="Game Recommendation Entry",
+                        fg='black', font=("Helvetica", 8))
+    lbl_0.place(x=200, y=15)
+    
+
+    # EXIT BUTTON
+    btn_exit = tk.Button(window, text="Exit",
+                            fg='black', command=close_window)
+    btn_exit.place(x=800, y=400)
+
+    
+    textFields = []
+    labels = ["Card Number", "Exp Date","CVV", "First Name", "Last Name",
+    'Company', 'Address', 'City', 'State', 'Zip', 'Country']
+    for i in range(len(labels)):
+            lbl_1 = tk.Label(window, text=labels[i],
+                            fg='black', font=("Helvetica", 8))
+            lbl_1.place(x = 50, y = 75 + i * 25)
+
+            txtfld_1 = tk.Entry(window, bg='white', fg='black', bd=5)
+            txtfld_1.place(x=250, y= 75 + i * 25)
+            textFields.append(txtfld_1)
+
+    
+    btn = tk.Button(window, text="Save Entry",
+                    fg='black', command=new_entry)
+    btn.place(x=400, y=400)
+    window.mainloop()
 
 ##################### Tab1 #########################################################################
 canvas1 = Canvas(
@@ -268,7 +320,7 @@ b1.place(x = 17, y = 389, width = 51, height = 53)
 
 # Undo Button
 img2 = PhotoImage(master=tab1, file = f"./images/btn-undo.png")  # Undo Button
-b2 = create_norm_btn(tab1, undo_round, img2)
+b2 = create_norm_btn(tab1, user_input, img2)
 b2.place(x = 236, y = 389, width = 51, height = 53)
 
 
@@ -503,7 +555,7 @@ class CustomerInfo:
     zip = None
     country = None
     
-
+customer = CustomerInfo()
 ##########################################################
 def charge_credit_card(amount, card, customer):
     """
@@ -643,7 +695,6 @@ def charge_credit_card(amount, card, customer):
     return response
 ############################################
 
-
 amount = "32"
 
 card = CreditCard()
@@ -651,7 +702,7 @@ card.number = "4111111111111111" # visa test number https://developer.authorize.
 card.expiration_date = "2051-01" # any date in the future
 card.code = "133" # any 3 digit code
 
-customer = CustomerInfo()
+
 customer.first_name = ""
 customer.last_name = ""
 customer.address = ""
@@ -659,6 +710,7 @@ customer.city = ""
 customer.state = ""
 customer.zip = ""
 customer.country = ""
+
 
 response = charge_credit_card(amount, card, customer)
 print(response.messages)
