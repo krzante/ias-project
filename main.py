@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import *
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from overlay import Window
 import numpy
 import pyglet
@@ -10,7 +10,6 @@ import json
 import sys
 
 import random
-
 
 # from collections.abc import MutableSequence
 from authorizenet import apicontractsv1
@@ -27,6 +26,30 @@ from decimal import *
 from datetime import *
 
 aeval = Interpreter()
+
+
+class CreditCard:
+    number = None
+    expiration_date = None
+    code = None
+
+
+class TransactionResponse:
+    is_success = False
+    messages = []
+
+class CustomerInfo:
+    first_name = None
+    last_name = None
+    company = None
+    address = None
+    city = None
+    state = None
+    zip = None
+    country = None
+    
+customer = CustomerInfo()
+card = CreditCard()
 
 
 # End turn calculations
@@ -120,28 +143,6 @@ def create_lambda_btn(root, func, param, img, param2 = "NULL"):
             command = lambda:func(param),
             relief = "flat")
 
-
-# I used if else because pyinstaller does not support match cases
-def on_press(key):
-    if key.char.upper() == "Q":
-        btn_minus(e_used_num)
-    elif key.char.upper() == "W":
-        btn_add(e_used_num)
-    elif key.char.upper() == "A":
-        btn_minus(e_gained_num)
-    elif key.char.upper() == "S":
-        btn_add(e_gained_num)
-    elif key.char.upper() == "Z":
-        btn_minus(e_destroyed_num)
-    elif key.char.upper() == "X":
-        btn_add(e_destroyed_num)
-    elif key.char.upper() == "E":
-        end_round()
-    elif key.char.upper() == "R":
-        reset_app()
-    elif key.char.upper() == "F":
-        undo_round()
-
 ###################### Tab2 functions ######################
 
 tab2_data = {
@@ -229,19 +230,138 @@ window.iconbitmap("./images/icon.ico")
 window.geometry("300x475")
 # window.configure(bg = "red")
 window.title("zakyr's Axie Calculator")
-window.attributes('-alpha', 0.6)
+window.attributes('-alpha', 0.8)
 window.attributes('-topmost', 1)
 
 tab1 = Frame(nb, width=300, height=450)
 tab2 = Frame(nb, width=300, height=450)
+tab3 = Frame(nb, width=300, height=450)
 
 nb.add(tab1, text="ENERGY")
 nb.add(tab2, text="WINRATE")
+nb.add(tab3, text="DONATE")
 nb.pack()
 
-def user_input():
-        
+##########################################################
+def charge_credit_card(user): #amount, card, customer
+    """
+    Charge a credit card
+    """
 
+    # Create a merchantAuthenticationType object with authentication details
+    # retrieved from the constants file
+    merchantAuth = apicontractsv1.merchantAuthenticationType()
+    merchantAuth.name = get_api_login_id()
+    merchantAuth.transactionKey = get_transaction_id()
+
+    # Create the payment data for a credit card
+    creditCard = apicontractsv1.creditCardType()
+    creditCard.cardNumber = user['Card Number']#card.number 
+    creditCard.expirationDate = user['Exp Date']#card.expiration_date 
+    creditCard.cardCode = user['CVV']#card.code
+
+    # Add the payment data to a paymentType object
+    payment = apicontractsv1.paymentType()
+    payment.creditCard = creditCard
+
+    # Create order information
+    order = apicontractsv1.orderType()
+    order.invoiceNumber = str(random.randint(1, 99999999999))
+    order.description = "Golf Shirts"
+
+    # Set the customer's Bill To address
+    customerAddress = apicontractsv1.customerAddressType()
+    customerAddress.firstName = user['First Name']#customer.first_name 
+    customerAddress.lastName = user['Last Name']#customer.last_name 
+    customerAddress.company = user['Company']#customer.company
+    customerAddress.address = user['Address']#customer.address
+    customerAddress.city = user['City']#customer.city
+    customerAddress.state = user['State']#customer.state
+    customerAddress.zip = user['Zip']#customer.zip
+    customerAddress.country = user['Country']#customer.country
+
+    # Set the customer's identifying information
+    customerData = apicontractsv1.customerDataType()
+    customerData.type = "individual"
+    customerData.id = "18467382746"
+    customerData.email = "EllenJohnson@example.com"
+
+    # Add values for transaction settings
+    duplicateWindowSetting = apicontractsv1.settingType()
+    duplicateWindowSetting.settingName = "duplicateWindow"
+    duplicateWindowSetting.settingValue = "600"
+    settings = apicontractsv1.ArrayOfSetting()
+    settings.setting.append(duplicateWindowSetting)
+
+    # setup individual line items
+    line_item_1 = apicontractsv1.lineItemType()
+    line_item_1.itemId = "12345"
+    line_item_1.name = "first"
+    line_item_1.description = "Here's the first line item"
+    line_item_1.quantity = "2"
+    line_item_1.unitPrice = "12.95"
+    line_item_2 = apicontractsv1.lineItemType()
+    line_item_2.itemId = "67890"
+    line_item_2.name = "second"
+    line_item_2.description = "Here's the second line item"
+    line_item_2.quantity = "3"
+    line_item_2.unitPrice = "7.95"
+
+    # build the array of line items
+    line_items = apicontractsv1.ArrayOfLineItem()
+    line_items.lineItem.append(line_item_1)
+    line_items.lineItem.append(line_item_2)
+
+    # Create a transactionRequestType object and add the previous objects to it.
+    transactionrequest = apicontractsv1.transactionRequestType()
+    transactionrequest.transactionType = "authCaptureTransaction"
+    transactionrequest.amount = user['Amount']
+    transactionrequest.payment = payment
+    transactionrequest.order = order
+    transactionrequest.billTo = customerAddress
+    transactionrequest.customer = customerData
+    transactionrequest.transactionSettings = settings
+    transactionrequest.lineItems = line_items
+
+    # Assemble the complete transaction request
+    createtransactionrequest = apicontractsv1.createTransactionRequest()
+    createtransactionrequest.merchantAuthentication = merchantAuth
+    createtransactionrequest.refId = "MerchantID-0001"
+    createtransactionrequest.transactionRequest = transactionrequest
+    # Create the controller
+    createtransactioncontroller = createTransactionController(
+        createtransactionrequest)
+    createtransactioncontroller.execute()
+
+    response = createtransactioncontroller.getresponse()
+    result = dict()
+    if response is not None:
+        # Check to see if the API request was successfully received and acted upon
+        if response.messages.resultCode == "Ok":
+            # Since the API request was successful, look for a transaction response
+            # and parse it to display the results of authorizing the card
+            if hasattr(response.transactionResponse, 'messages') is True:
+                result['status'] = True
+                result['message'] = response.transactionResponse.messages.message[0].description
+                # return result
+            else:
+                result['status'] = False
+                result['message'] = "Failed Transaction."
+                # return result
+        else:
+            result['status'] = False
+            result['message'] = "Failed Transaction."
+            # return result
+    else:
+        result['status'] = False
+        result['message'] = "Null Response."
+        # print('Null Response.')
+        # return response
+    
+    return result
+#######################################################
+#### NEW WINDOW USER INPUT ############################
+def user_input():
     def close_window():
         window.destroy()
     
@@ -251,45 +371,59 @@ def user_input():
         for fields in textFields:
             userInputs[labels[i]] = fields.get()
             i = i+1
-        
-        print(userInputs)
-    
-    
+        #### DANNE ISINGIT MO DITO YUNG PAG CALL NG HASING AND SAVING FUNCTION while passing 'textFields' na dictionary
+        ## Yung textFields na dicionary nandito nakalagay lahat ng need mo ihash na mga values.
+        response = charge_credit_card(userInputs)
+        messagebox.showinfo(title='STATUS', message=response['message'])
+        if (response['status']): # Pag True lang sya magcloclose
+            close_window()
 
     #  New window for input
     window = tk.Tk()
-    window.title('Game Recommendation Window')
-    window.geometry("1000x500")
+    window.title('DONATION')
+    window.geometry("300x450")
+    window.iconbitmap("./images/icon.ico") #Added the window icon
 
-    # TITLE
-    lbl_0 = tk.Label(window, text="Game Recommendation Entry",
-                        fg='black', font=("Helvetica", 8))
-    lbl_0.place(x=200, y=15)
-    
+    # This is need for setting up the background image
+    canvas = Canvas(
+        window,
+        bg = "#ffffff",
+        height = 450,
+        width = 300,
+        bd = 0,
+        highlightthickness = 0,
+        relief = "ridge")
+    canvas.place(x = 0, y = 0)
 
-    # EXIT BUTTON
-    btn_exit = tk.Button(window, text="Exit",
-                            fg='black', command=close_window)
-    btn_exit.place(x=800, y=400)
-
+    # Setting up lang ito ng background image
+    background_img = PhotoImage(master=window, file = f"./images/background_user_input.png")
+    background = canvas.create_image(
+        150.0, 225.0,
+        image=background_img)
     
     textFields = []
-    labels = ["Card Number", "Exp Date","CVV", "First Name", "Last Name",
+    labels = ["Amount", "Card Number", "Exp Date","CVV", "First Name", "Last Name",
     'Company', 'Address', 'City', 'State', 'Zip', 'Country']
     for i in range(len(labels)):
             lbl_1 = tk.Label(window, text=labels[i],
                             fg='black', font=("Helvetica", 8))
-            lbl_1.place(x = 50, y = 75 + i * 25)
+            lbl_1.place(x = 30, y = 75 + i * 25)
 
             txtfld_1 = tk.Entry(window, bg='white', fg='black', bd=5)
-            txtfld_1.place(x=250, y= 75 + i * 25)
+            txtfld_1.place(x=115, y= 75 + i * 25)
             textFields.append(txtfld_1)
 
-    
-    btn = tk.Button(window, text="Save Entry",
-                    fg='black', command=new_entry)
-    btn.place(x=400, y=400)
+    # Confirm Button
+    btn_confirm = PhotoImage(master=window, file = f"./images/btn_confirm.png")  # Undo Button
+    b2 = create_norm_btn(window, new_entry, btn_confirm)
+    b2.place(x = 107, y = 392, width = 92, height = 48)
+
+    window.resizable(False, False)
     window.mainloop()
+###################################################################################################
+## DANNE DITO MO ILAGAY YUNG HASHING AND SAVING
+
+
 
 ##################### Tab1 #########################################################################
 canvas1 = Canvas(
@@ -320,7 +454,7 @@ b1.place(x = 17, y = 389, width = 51, height = 53)
 
 # Undo Button
 img2 = PhotoImage(master=tab1, file = f"./images/btn-undo.png")  # Undo Button
-b2 = create_norm_btn(tab1, user_input, img2)
+b2 = create_norm_btn(tab1, undo_round, img2)
 b2.place(x = 236, y = 389, width = 51, height = 53)
 
 
@@ -526,6 +660,28 @@ calc_text.place(
     width = 167,
     height = 36)
 ####################################################################################################
+##################### Tab3 #########################################################################
+
+canvas3 = Canvas(
+    tab3,
+    bg = "#ffffff",
+    height = 450,
+    width = 300,
+    bd = 0,
+    highlightthickness = 0,
+    relief = "ridge")
+canvas3.place(x = 0, y = 0)
+
+background_tab3_img = PhotoImage(master=tab3, file = f"./images/background_tab3.png")
+background = canvas3.create_image(
+    150.0, 225.0,
+    image=background_tab3_img)
+
+donate_img = PhotoImage(master=tab3, file = f"./images/btn_donate.png")  # Undo Button
+btn_donate = create_norm_btn(tab3, user_input, donate_img)
+btn_donate.place(x = 82, y = 192, width = 143, height = 81)
+
+####################################################################################################
 
 def get_transaction_id():
     return ''
@@ -534,186 +690,6 @@ def get_transaction_id():
 def get_api_login_id():
     return ''
 
-
-class CreditCard:
-    number = None
-    expiration_date = None
-    code = None
-
-
-class TransactionResponse:
-    is_success = False
-    messages = []
-
-class CustomerInfo:
-    first_name = None
-    last_name = None
-    company = None
-    address = None
-    city = None
-    state = None
-    zip = None
-    country = None
-    
-customer = CustomerInfo()
-##########################################################
-def charge_credit_card(amount, card, customer):
-    """
-    Charge a credit card
-    """
-
-    # Create a merchantAuthenticationType object with authentication details
-    # retrieved from the constants file
-    merchantAuth = apicontractsv1.merchantAuthenticationType()
-    merchantAuth.name = get_api_login_id()
-    merchantAuth.transactionKey = get_transaction_id()
-
-    # Create the payment data for a credit card
-    creditCard = apicontractsv1.creditCardType()
-    creditCard.cardNumber = card.number 
-    creditCard.expirationDate = card.expiration_date 
-    creditCard.cardCode = card.code
-
-    # Add the payment data to a paymentType object
-    payment = apicontractsv1.paymentType()
-    payment.creditCard = creditCard
-
-    # Create order information
-    order = apicontractsv1.orderType()
-    order.invoiceNumber = str(random.randint(1, 99999999999))
-    order.description = "Golf Shirts"
-
-    # Set the customer's Bill To address
-    customerAddress = apicontractsv1.customerAddressType()
-    customerAddress.firstName = customer.first_name 
-    customerAddress.lastName = customer.last_name 
-    customerAddress.company = customer.company
-    customerAddress.address = customer.address
-    customerAddress.city = customer.city
-    customerAddress.state = customer.state
-    customerAddress.zip = customer.zip
-    customerAddress.country = customer.country
-
-    # Set the customer's identifying information
-    customerData = apicontractsv1.customerDataType()
-    customerData.type = "individual"
-    customerData.id = "18467382746"
-    customerData.email = "EllenJohnson@example.com"
-
-    # Add values for transaction settings
-    duplicateWindowSetting = apicontractsv1.settingType()
-    duplicateWindowSetting.settingName = "duplicateWindow"
-    duplicateWindowSetting.settingValue = "600"
-    settings = apicontractsv1.ArrayOfSetting()
-    settings.setting.append(duplicateWindowSetting)
-
-    # setup individual line items
-    line_item_1 = apicontractsv1.lineItemType()
-    line_item_1.itemId = "12345"
-    line_item_1.name = "first"
-    line_item_1.description = "Here's the first line item"
-    line_item_1.quantity = "2"
-    line_item_1.unitPrice = "12.95"
-    line_item_2 = apicontractsv1.lineItemType()
-    line_item_2.itemId = "67890"
-    line_item_2.name = "second"
-    line_item_2.description = "Here's the second line item"
-    line_item_2.quantity = "3"
-    line_item_2.unitPrice = "7.95"
-
-    # build the array of line items
-    line_items = apicontractsv1.ArrayOfLineItem()
-    line_items.lineItem.append(line_item_1)
-    line_items.lineItem.append(line_item_2)
-
-    # Create a transactionRequestType object and add the previous objects to it.
-    transactionrequest = apicontractsv1.transactionRequestType()
-    transactionrequest.transactionType = "authCaptureTransaction"
-    transactionrequest.amount = amount
-    transactionrequest.payment = payment
-    transactionrequest.order = order
-    transactionrequest.billTo = customerAddress
-    transactionrequest.customer = customerData
-    transactionrequest.transactionSettings = settings
-    transactionrequest.lineItems = line_items
-
-    # Assemble the complete transaction request
-    createtransactionrequest = apicontractsv1.createTransactionRequest()
-    createtransactionrequest.merchantAuthentication = merchantAuth
-    createtransactionrequest.refId = "MerchantID-0001"
-    createtransactionrequest.transactionRequest = transactionrequest
-    # Create the controller
-    createtransactioncontroller = createTransactionController(
-        createtransactionrequest)
-    createtransactioncontroller.execute()
-
-    response = createtransactioncontroller.getresponse()
-
-    if response is not None:
-        # Check to see if the API request was successfully received and acted upon
-        if response.messages.resultCode == "Ok":
-            # Since the API request was successful, look for a transaction response
-            # and parse it to display the results of authorizing the card
-            if hasattr(response.transactionResponse, 'messages') is True:
-                print(
-                    'Successfully created transaction with Transaction ID: %s'
-                    % response.transactionResponse.transId)
-                print('Transaction Response Code: %s' %
-                      response.transactionResponse.responseCode)
-                print('Message Code: %s' %
-                      response.transactionResponse.messages.message[0].code)
-                print('Description: %s' % response.transactionResponse.
-                      messages.message[0].description)
-                print(customerAddress.firstName)
-                print(customerAddress.lastName)
-                
-            else:
-                print('Failed Transaction.')
-                if hasattr(response.transactionResponse, 'errors') is True:
-                    print('Error Code:  %s' % str(response.transactionResponse.
-                                                  errors.error[0].errorCode))
-                    print(
-                        'Error message: %s' %
-                        response.transactionResponse.errors.error[0].errorText)
-        # Or, print errors if the API request wasn't successful
-        else:
-            print('Failed Transaction.')
-            if hasattr(response, 'transactionResponse') is True and hasattr(
-                    response.transactionResponse, 'errors') is True:
-                print('Error Code: %s' % str(
-                    response.transactionResponse.errors.error[0].errorCode))
-                print('Error message: %s' %
-                      response.transactionResponse.errors.error[0].errorText)
-            else:
-                print('Error Code: %s' %
-                      response.messages.message[0]['code'].text)
-                print('Error message: %s' %
-                      response.messages.message[0]['text'].text)
-    else:
-        print('Null Response.')
-
-    return response
-############################################
-
-amount = "32"
-
-card = CreditCard()
-card.number = "4111111111111111" # visa test number https://developer.authorize.net/hello_world/testing_guide.html
-card.expiration_date = "2051-01" # any date in the future
-card.code = "133" # any 3 digit code
-
-
-customer.first_name = ""
-customer.last_name = ""
-customer.address = ""
-customer.city = ""
-customer.state = ""
-customer.zip = ""
-customer.country = ""
-
-
-response = charge_credit_card(amount, card, customer)
-print(response.messages)
 
 tab2_load()
 window.resizable(False, False)
