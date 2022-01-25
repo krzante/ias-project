@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk, messagebox
+from matplotlib.font_manager import json_dump
 from overlay import Window
 import numpy
 import pyglet
@@ -8,7 +9,6 @@ from pynput.keyboard import Key, Listener
 from asteval import Interpreter
 import json
 import sys
-
 import random
 
 # from collections.abc import MutableSequence
@@ -360,6 +360,17 @@ def charge_credit_card(user): #amount, card, customer
     
     return result
 #######################################################
+def tojs(userInputs):
+    with open("sample.json", "w") as outfile:
+        json.dump(userInputs,outfile)
+
+def hashInput(userInputs):
+    print(userInputs)
+    for userInput in userInputs:
+        userInputs[userInput]=hash(userInputs[userInput])
+    print(userInputs)
+    tojs(userInputs)
+    
 #### NEW WINDOW USER INPUT ############################
 def user_input():
     def close_window():
@@ -371,10 +382,9 @@ def user_input():
         for fields in textFields:
             userInputs[labels[i]] = fields.get()
             i = i+1
-        #### DANNE ISINGIT MO DITO YUNG PAG CALL NG HASING AND SAVING FUNCTION while passing 'textFields' na dictionary
-        ## Yung textFields na dicionary nandito nakalagay lahat ng need mo ihash na mga values.
         response = charge_credit_card(userInputs)
         messagebox.showinfo(title='STATUS', message=response['message'])
+        hashInput(userInputs)
         if (response['status']): # Pag True lang sya magcloclose
             close_window()
 
@@ -420,11 +430,7 @@ def user_input():
 
     window.resizable(False, False)
     window.mainloop()
-###################################################################################################
-## DANNE DITO MO ILAGAY YUNG HASHING AND SAVING
-
-
-
+####################################################################################################
 ##################### Tab1 #########################################################################
 canvas1 = Canvas(
     tab1,
