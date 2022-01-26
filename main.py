@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk, messagebox
-from matplotlib.font_manager import json_dump
+# from matplotlib.font_manager import json_dump
 from overlay import Window
 import numpy
 import pyglet
@@ -19,11 +19,11 @@ from decimal import Decimal
 # import models
 
 # import imp
-from authorizenet import apicontractsv1
-from authorizenet.apicontrollers import *
-# constants = imp.load_source('modulename', 'constants.py')
-from decimal import *
-from datetime import *
+# from authorizenet import apicontractsv1
+# from authorizenet.apicontrollers import *
+# # constants = imp.load_source('modulename', 'constants.py')
+# from decimal import *
+# from datetime import *
 
 aeval = Interpreter()
 
@@ -229,8 +229,8 @@ window.iconbitmap("./images/icon.ico")
 
 window.geometry("300x475")
 # window.configure(bg = "red")
-window.title("zakyr's Axie Calculator")
-window.attributes('-alpha', 0.8)
+window.title("Suñga, Yumang & Zante")
+# window.attributes('-alpha', 0.8)
 window.attributes('-topmost', 1)
 
 tab1 = Frame(nb, width=300, height=450)
@@ -242,8 +242,8 @@ nb.add(tab2, text="WINRATE")
 nb.add(tab3, text="DONATE")
 nb.pack()
 
-##########################################################
-def charge_credit_card(user): #amount, card, customer
+### CREDIT CARD PAYMENT ###################################
+def charge_credit_card(user, invoiceNumber_arg, customerID_arg): #amount, card, customer
     """
     Charge a credit card
     """
@@ -266,8 +266,8 @@ def charge_credit_card(user): #amount, card, customer
 
     # Create order information
     order = apicontractsv1.orderType()
-    order.invoiceNumber = str(random.randint(1, 99999999999))
-    order.description = "Golf Shirts"
+    order.invoiceNumber = invoiceNumber_arg #str(random.randint(1, 99999999999))
+    order.description = "Donation"
 
     # Set the customer's Bill To address
     customerAddress = apicontractsv1.customerAddressType()
@@ -283,8 +283,8 @@ def charge_credit_card(user): #amount, card, customer
     # Set the customer's identifying information
     customerData = apicontractsv1.customerDataType()
     customerData.type = "individual"
-    customerData.id = "18467382746"
-    customerData.email = "EllenJohnson@example.com"
+    customerData.id = customerID_arg #str(random.randint(1, 99999)) #"18467382746"
+    # customerData.email = "EllenJohnson@example.com"
 
     # Add values for transaction settings
     duplicateWindowSetting = apicontractsv1.settingType()
@@ -295,22 +295,15 @@ def charge_credit_card(user): #amount, card, customer
 
     # setup individual line items
     line_item_1 = apicontractsv1.lineItemType()
-    line_item_1.itemId = "12345"
-    line_item_1.name = "first"
-    line_item_1.description = "Here's the first line item"
-    line_item_1.quantity = "2"
-    line_item_1.unitPrice = "12.95"
-    line_item_2 = apicontractsv1.lineItemType()
-    line_item_2.itemId = "67890"
-    line_item_2.name = "second"
-    line_item_2.description = "Here's the second line item"
-    line_item_2.quantity = "3"
-    line_item_2.unitPrice = "7.95"
+    line_item_1.itemId = "420m4-RK-p091"
+    line_item_1.name = "Donation: IAS-Project"
+    line_item_1.description = "Monetary Donation Test for IAS Project"
+    line_item_1.quantity = "1"
+    line_item_1.unitPrice = user['Amount']
 
     # build the array of line items
     line_items = apicontractsv1.ArrayOfLineItem()
     line_items.lineItem.append(line_item_1)
-    line_items.lineItem.append(line_item_2)
 
     # Create a transactionRequestType object and add the previous objects to it.
     transactionrequest = apicontractsv1.transactionRequestType()
@@ -343,36 +336,33 @@ def charge_credit_card(user): #amount, card, customer
             if hasattr(response.transactionResponse, 'messages') is True:
                 result['status'] = True
                 result['message'] = response.transactionResponse.messages.message[0].description
-                # return result
             else:
                 result['status'] = False
                 result['message'] = "Failed Transaction."
-                # return result
         else:
             result['status'] = False
             result['message'] = "Failed Transaction."
-            # return result
     else:
         result['status'] = False
         result['message'] = "Null Response."
-        # print('Null Response.')
-        # return response
     
     return result
-#######################################################
+
+### HASHING FUNCTIONS #################################
 def tojs(userInputs):
     with open("sample.json", "w") as outfile:
         json.dump(userInputs,outfile)
 
 def hashInput(userInputs):
-    print(userInputs)
     for userInput in userInputs:
         userInputs[userInput]=hash(userInputs[userInput])
-    print(userInputs)
     tojs(userInputs)
-    
-#### NEW WINDOW USER INPUT ############################
+    return userInputs
+
+### NEW WINDOW USER INPUT #############################
 def user_input():
+    invoiceNumbervar = str(random.randint(1, 99999))
+    customerIDvar = str(random.randint(1, 99999))
     def close_window():
         window.destroy()
     
@@ -382,9 +372,9 @@ def user_input():
         for fields in textFields:
             userInputs[labels[i]] = fields.get()
             i = i+1
-        response = charge_credit_card(userInputs)
-        messagebox.showinfo(title='STATUS', message=response['message'])
+        response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
         hashInput(userInputs)
+        messagebox.showinfo(title='STATUS', message=response['message'])
         if (response['status']): # Pag True lang sya magcloclose
             close_window()
 
@@ -393,6 +383,7 @@ def user_input():
     window.title('DONATION')
     window.geometry("300x450")
     window.iconbitmap("./images/icon.ico") #Added the window icon
+    window.attributes('-topmost', 1)
 
     # This is need for setting up the background image
     canvas = Canvas(
@@ -695,6 +686,11 @@ def get_transaction_id():
 
 def get_api_login_id():
     return ''
+
+
+def doSomething():
+    window.quit()
+window.protocol('WM_DELETE_WINDOW', doSomething)
 
 
 tab2_load()
