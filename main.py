@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import *
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 # from matplotlib.font_manager import json_dump
 from overlay import Window
 import numpy
@@ -24,8 +24,10 @@ from decimal import Decimal
 # # constants = imp.load_source('modulename', 'constants.py')
 # from decimal import *
 # from datetime import *
+import smtplib, ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-aeval = Interpreter()
 
 
 class CreditCard:
@@ -368,16 +370,85 @@ def user_input():
     
     userInputs = dict()
     def new_entry():
-        i = 0
-        for fields in textFields:
-            userInputs[labels[i]] = fields.get()
-            i = i+1
-        response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
-        hashInput(userInputs)
-        messagebox.showinfo(title='STATUS', message=response['message'])
-        if (response['status']): # Pag True lang sya magcloclose
-            close_window()
+        # Email Setup
+        code = str(random.randint(100000, 999999))
+        port = 587  # For starttls
+        smtp_server = "smtp.gmail.com"
+        receiver_email = "richardandrei.sunga@tup.edu.ph"
+        sender_email = "thinklikblog@gmail.com"
+        password = ""
 
+        message = """\
+        IAS PROJECT: VERIFICATION
+
+        INPUT THE FOLLOWING 6 DIGIT CODE TO CONFIRM THE TRABSACTION
+        {}""".format(code)
+       
+        context = ssl.create_default_context()
+        with smtplib.SMTP(smtp_server, port) as server:
+            server.ehlo()  # Can be omitted
+            server.starttls(context=context)
+            server.ehlo()  # Can be omitted
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message)
+        aeval = Interpreter()
+
+        # Input box
+        ROOT = tk.Tk()
+        ROOT.withdraw()
+        ROOT.attributes('-topmost', 1)
+        
+        valid = False
+        tries = 0
+        while(not valid):
+
+            # If the user inputs the code 3 times in a row
+            if (tries == 3):
+                message = """\
+                IAS PROJECT: SECURITY ALERT
+
+                SOMEONE IS TRYING TO MAKE TRANSACTIONS WITH YOUR CREDIT CARD 
+                """
+            
+                context = ssl.create_default_context()
+                with smtplib.SMTP(smtp_server, port) as server:
+                    server.ehlo()  # Can be omitted
+                    server.starttls(context=context)
+                    server.ehlo()  # Can be omitted
+                    server.login(sender_email, password)
+                    server.sendmail(sender_email, receiver_email, message)
+                aeval = Interpreter()
+                
+                valid = True
+                continue
+            
+            # the input dialog
+            USER_INP = simpledialog.askstring(parent = ROOT, title="Verification",
+                                    prompt="Input the 6 digit code:")
+            
+            if (USER_INP == code):
+                # Transaction 
+                i = 0
+                for fields in textFields:
+                    userInputs[labels[i]] = fields.get()
+                    i = i+1
+                response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
+                hashInput(userInputs)
+                messagebox.showinfo(title='STATUS', message=response['message'])
+
+                if (response['status']): # Pag True lang sya magcloclose
+                    close_window()
+
+                valid = True
+            
+            # If the user clicks the cancel and exit button
+            elif(USER_INP == None):
+                valid = True
+            
+            # If the user inputted the wrong code
+            else: 
+                tries = tries+1
+            
     #  New window for input
     window = tk.Tk()
     window.title('DONATION')
