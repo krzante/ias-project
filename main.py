@@ -364,10 +364,12 @@ def user_input():
     window.geometry("300x450")
     window.iconbitmap("./images/icon.ico") #Added the window icon
     window.attributes('-topmost', 1)
+    btn_donate["state"] = "disabled"
 
     invoiceNumbervar = str(random.randint(1, 99999))
     customerIDvar = str(random.randint(1, 99999))
     def close_window():
+        btn_donate["state"] = "normal"
         window.destroy()
     
     userInputs = dict()
@@ -555,6 +557,7 @@ def user_input():
     b2.place(x = 107, y = 392, width = 92, height = 48)
 
     window.resizable(False, False)
+    window.protocol("WM_DELETE_WINDOW", close_window)
     window.mainloop()
 ####################################################################################################
 ##################### Tab1 #########################################################################
