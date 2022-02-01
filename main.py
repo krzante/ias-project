@@ -11,19 +11,12 @@ import json
 import sys
 import random
 
-# from collections.abc import MutableSequence
+import hashlib
+
 from authorizenet import apicontractsv1
 from authorizenet.apicontrollers import createTransactionController
 from decimal import Decimal
-# import settings
-# import models
 
-# import imp
-# from authorizenet import apicontractsv1
-# from authorizenet.apicontrollers import *
-# # constants = imp.load_source('modulename', 'constants.py')
-# from decimal import *
-# from datetime import *
 import smtplib, ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -287,7 +280,7 @@ def charge_credit_card(user, invoiceNumber_arg, customerID_arg): #amount, card, 
     customerData = apicontractsv1.customerDataType()
     customerData.type = "individual"
     customerData.id = customerID_arg #str(random.randint(1, 99999)) #"18467382746"
-    # customerData.email = "EllenJohnson@example.com"
+    customerData.email = "kyleramon.zante@tup.edu.ph"
 
     # Add values for transaction settings
     duplicateWindowSetting = apicontractsv1.settingType()
@@ -358,19 +351,40 @@ def tojs(userInputs):
 
 def hashInput(userInputs):
     for userInput in userInputs:
-        userInputs[userInput]=hash(userInputs[userInput])
+        hashvar = hashlib.md5(str(userInputs[userInput]).encode('utf-8'))
+        userInputs[userInput]= str(hashvar.hexdigest()) #hash(userInputs[userInput])
     tojs(userInputs)
     return userInputs
 
 ### NEW WINDOW USER INPUT #############################
 def user_input():
+    #  New window for input
+    window = tk.Tk()
+    window.title('DONATION')
+    window.geometry("300x450")
+    window.iconbitmap("./images/icon.ico") #Added the window icon
+    window.attributes('-topmost', 1)
+
     invoiceNumbervar = str(random.randint(1, 99999))
     customerIDvar = str(random.randint(1, 99999))
     def close_window():
         window.destroy()
     
     userInputs = dict()
+
     def new_entry():
+        i = 0
+        for fields in textFields:
+            userInputs[labels[i]] = fields.get()
+            i = i+1
+
+        # Email Setup
+        code = str(random.randint(100000, 999999))
+        port = 587  # For starttls
+        smtp_server = "smtp.gmail.com"
+        receiver_email = "kyleramon.zante@tup.edu.ph"
+        sender_email = "thinklikblog@gmail.com"
+        password = ""
 
         date_format_str = '%d/%m/%Y %H:%M:%S.%f'
         try: # Load card number start time
