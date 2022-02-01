@@ -27,6 +27,7 @@ from decimal import Decimal
 import smtplib, ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from datetime import *
 
 
 
@@ -370,84 +371,133 @@ def user_input():
     
     userInputs = dict()
     def new_entry():
-        # Email Setup
-        code = str(random.randint(100000, 999999))
-        port = 587  # For starttls
-        smtp_server = "smtp.gmail.com"
-        receiver_email = "richardandrei.sunga@tup.edu.ph"
-        sender_email = "thinklikblog@gmail.com"
-        password = ""
 
-        message = """\
-        IAS PROJECT: VERIFICATION
+        date_format_str = '%d/%m/%Y %H:%M:%S.%f'
+        try: # Load card number start time
+            with open('time.json', 'r') as fjson:
+                data = json.load(fjson)
 
-        INPUT THE FOLLOWING 6 DIGIT CODE TO CONFIRM THE TRABSACTION
-        {}""".format(code)
-       
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_server, port) as server:
-            server.ehlo()  # Can be omitted
-            server.starttls(context=context)
-            server.ehlo()  # Can be omitted
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, message)
-        aeval = Interpreter()
+            cardNumber = textFields[1].get()
+            jsonTime = data[cardNumber]
 
-        # Input box
-        ROOT = tk.Tk()
-        ROOT.withdraw()
-        ROOT.attributes('-topmost', 1)
+        except: # Initialize start time for new card number
+            with open('time.json', 'r') as fjson:
+                data = json.load(fjson)
+         
+            jsonTime  = '01/1/0001 00:00:00.000000' # Initial time
+            cardNumber = textFields[1].get()
+            data[cardNumber] = jsonTime
+
+            with open('time.json', 'w') as fjson:
+                json.dump(data, fjson)
+
+        # Convert string from json to time object
+        startTime = datetime.strptime(jsonTime, date_format_str)
+
+        # Get current time
+        currentTime = datetime.now()
+        timeLeft = currentTime - startTime
+
         
-        valid = False
-        tries = 0
-        while(not valid):
+        if timeLeft <= timedelta(minutes=10):
+            seconds = timeLeft.seconds
+            minutes = (seconds//60)%60 
+            messagebox.showinfo(title='STATUS', message="Please try again in {} minutes".format(10-minutes))
+           
+        else: # Email Setup
+            code = str(random.randint(100000, 999999))
+            port = 587  # For starttls
+            smtp_server = "smtp.gmail.com"
+            receiver_email = "richardandrei.sunga@tup.edu.ph"
+            sender_email = "thinklikblog@gmail.com"
+            password = "09123456think!"
 
-            # If the user inputs the code 3 times in a row
-            if (tries == 3):
-                message = """\
-                IAS PROJECT: SECURITY ALERT
+            message = """\
+            IAS PROJECT: VERIFICATION
 
-                SOMEONE IS TRYING TO MAKE TRANSACTIONS WITH YOUR CREDIT CARD 
-                """
+            INPUT THE FOLLOWING 6 DIGIT CODE TO CONFIRM THE TRABSACTION
+            {}""".format(code)
+        
+            context = ssl.create_default_context()
+            with smtplib.SMTP(smtp_server, port) as server:
+                server.ehlo()  # Can be omitted
+                server.starttls(context=context)
+                server.ehlo()  # Can be omitted
+                server.login(sender_email, password)
+                server.sendmail(sender_email, receiver_email, message)
+            aeval = Interpreter()
+
+            # Input box
+            ROOT = tk.Tk()
+            ROOT.withdraw()
+            ROOT.attributes('-topmost', 1)
             
-                context = ssl.create_default_context()
-                with smtplib.SMTP(smtp_server, port) as server:
-                    server.ehlo()  # Can be omitted
-                    server.starttls(context=context)
-                    server.ehlo()  # Can be omitted
-                    server.login(sender_email, password)
-                    server.sendmail(sender_email, receiver_email, message)
-                aeval = Interpreter()
+            valid = False
+            tries = 0
+            while(not valid):
                 
-                valid = True
-                continue
-            
-            # the input dialog
-            USER_INP = simpledialog.askstring(parent = ROOT, title="Verification",
-                                    prompt="Input the 6 digit code:")
-            
-            if (USER_INP == code):
-                # Transaction 
-                i = 0
-                for fields in textFields:
-                    userInputs[labels[i]] = fields.get()
-                    i = i+1
-                response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
-                hashInput(userInputs)
-                messagebox.showinfo(title='STATUS', message=response['message'])
+                # If the user inputs the code 3 times in a row
+                if (tries == 3):
 
-                if (response['status']): # Pag True lang sya magcloclose
-                    close_window()
+                    # ADD START TIME OF THE TIMEOUT
+                    with open('time.json', 'r') as fjson:
+                        data = json.load(fjson)
+                
+                    # Get current time and convert it from time object to string
+                    currentTime = datetime.now()
+                    currentTime = currentTime.strftime('%d/%m/%Y %H:%M:%S.%f')
 
-                valid = True
-            
-            # If the user clicks the cancel and exit button
-            elif(USER_INP == None):
-                valid = True
-            
-            # If the user inputted the wrong code
-            else: 
-                tries = tries+1
+                    cardNumber = textFields[1].get()
+                    data[cardNumber] = currentTime
+
+                    with open('time.json', 'w') as fjson:
+                        json.dump(data, fjson)
+
+                    # EMAIL NOTIFICATION FOR TIMEOUT
+                    message = """\
+                    IAS PROJECT: SECURITY ALERT
+
+                    SOMEONE IS TRYING TO MAKE TRANSACTIONS WITH YOUR CREDIT CARD 
+                    """
+                
+                    context = ssl.create_default_context()
+                    with smtplib.SMTP(smtp_server, port) as server:
+                        server.ehlo()  # Can be omitted
+                        server.starttls(context=context)
+                        server.ehlo()  # Can be omitted
+                        server.login(sender_email, password)
+                        server.sendmail(sender_email, receiver_email, message)
+                    aeval = Interpreter()
+                    
+                    valid = True
+                    continue
+                
+                # the input dialog
+                USER_INP = simpledialog.askstring(parent = ROOT, title="Verification",
+                                        prompt="Input the 6 digit code:")
+                
+                if (USER_INP == code):
+                    # Transaction 
+                    i = 0
+                    for fields in textFields:
+                        userInputs[labels[i]] = fields.get()
+                        i = i+1
+                    response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
+                    hashInput(userInputs)
+                    messagebox.showinfo(title='STATUS', message=response['message'])
+
+                    if (response['status']): # Pag True lang sya magcloclose
+                        close_window()
+
+                    valid = True
+                
+                # If the user clicks the cancel and exit button
+                elif(USER_INP == None):
+                    valid = True
+                
+                # If the user inputted the wrong code
+                else: 
+                    tries = tries+1
             
     #  New window for input
     window = tk.Tk()
