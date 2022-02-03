@@ -361,6 +361,7 @@ def user_input():
     #  New window for input
     window = tk.Tk()
     window.title('DONATION')
+    window.withdraw()
     window.geometry("300x450")
     window.iconbitmap("./images/icon.ico") #Added the window icon
     window.attributes('-topmost', 1)
@@ -418,15 +419,15 @@ def user_input():
         if timeLeft <= timedelta(minutes=10):
             seconds = timeLeft.seconds
             minutes = (seconds//60)%60 
-            messagebox.showinfo(title='STATUS', message="Please try again in {} minutes".format(10-minutes))
+            messagebox.showinfo(title='STATUS', message="Please try again in {} minutes".format(10-minutes), parent=window)
            
         else: # Email Setup
             code = str(random.randint(100000, 999999))
             port = 587  # For starttls
             smtp_server = "smtp.gmail.com"
-            receiver_email = "richardandrei.sunga@tup.edu.ph"
+            receiver_email = "kyleramon.zante@tup.edu.ph"
             sender_email = "thinklikblog@gmail.com"
-            password = "09123456think!"
+            password = "!"
 
             message = """\
             IAS PROJECT: VERIFICATION
@@ -442,11 +443,6 @@ def user_input():
                 server.login(sender_email, password)
                 server.sendmail(sender_email, receiver_email, message)
             aeval = Interpreter()
-
-            # Input box
-            ROOT = tk.Tk()
-            ROOT.withdraw()
-            ROOT.attributes('-topmost', 1)
             
             valid = False
             tries = 0
@@ -489,8 +485,8 @@ def user_input():
                     continue
                 
                 # the input dialog
-                USER_INP = simpledialog.askstring(parent = ROOT, title="Verification",
-                                        prompt="Input the 6 digit code:")
+                USER_INP = simpledialog.askstring(title="Verification",
+                                        prompt="Input the 6 digit code:"+30*" ", parent=window)
                 
                 if (USER_INP == code):
                     # Transaction 
@@ -500,7 +496,7 @@ def user_input():
                         i = i+1
                     response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
                     hashInput(userInputs)
-                    messagebox.showinfo(title='STATUS', message=response['message'])
+                    messagebox.showinfo(title='STATUS', message=response['message'], parent=window)
 
                     if (response['status']): # Pag True lang sya magcloclose
                         close_window()
