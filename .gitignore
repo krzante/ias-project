@@ -1,4 +1,9 @@
 dist/
 build/
+sample.json
+*.spec
+.vscode/
+.main
+output/
 
-.spec
+__pycache__

@@ -11,8 +11,10 @@ pyglet = "*"
 pynput = "*"
 auto-py-to-exe = "*"
 asteval = "*"
+authorizenet = "*"
+pyxb = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.10"
+python_version = "3.9.10"

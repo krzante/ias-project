@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import *
-from tkinter import ttk
+from tkinter import ttk, messagebox, simpledialog
+# from matplotlib.font_manager import json_dump
 from overlay import Window
 import numpy
 import pyglet
@@ -8,8 +9,43 @@ from pynput.keyboard import Key, Listener
 from asteval import Interpreter
 import json
 import sys
+import random
 
-aeval = Interpreter()
+import hashlib
+
+from authorizenet import apicontractsv1
+from authorizenet.apicontrollers import createTransactionController
+from decimal import Decimal
+
+import smtplib, ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import *
+
+
+
+class CreditCard:
+    number = None
+    expiration_date = None
+    code = None
+
+
+class TransactionResponse:
+    is_success = False
+    messages = []
+
+class CustomerInfo:
+    first_name = None
+    last_name = None
+    company = None
+    address = None
+    city = None
+    state = None
+    zip = None
+    country = None
+    
+customer = CustomerInfo()
+card = CreditCard()
 
 
 # End turn calculations
@@ -103,28 +139,6 @@ def create_lambda_btn(root, func, param, img, param2 = "NULL"):
             command = lambda:func(param),
             relief = "flat")
 
-
-# I used if else because pyinstaller does not support match cases
-def on_press(key):
-    if key.char.upper() == "Q":
-        btn_minus(e_used_num)
-    elif key.char.upper() == "W":
-        btn_add(e_used_num)
-    elif key.char.upper() == "A":
-        btn_minus(e_gained_num)
-    elif key.char.upper() == "S":
-        btn_add(e_gained_num)
-    elif key.char.upper() == "Z":
-        btn_minus(e_destroyed_num)
-    elif key.char.upper() == "X":
-        btn_add(e_destroyed_num)
-    elif key.char.upper() == "E":
-        end_round()
-    elif key.char.upper() == "R":
-        reset_app()
-    elif key.char.upper() == "F":
-        undo_round()
-
 ###################### Tab2 functions ######################
 
 tab2_data = {
@@ -198,6 +212,7 @@ def tab2_load():
     calc_text.insert(1.0, tab2_calculation)
 
 
+
 pyglet.font.add_file('./fonts/AldotheApache.ttf')
 dflt_fnt = "Aldo the Apache"
 clr_white = "#ffffff"
@@ -210,18 +225,337 @@ window.iconbitmap("./images/icon.ico")
 
 window.geometry("300x475")
 # window.configure(bg = "red")
-window.title("zakyr's Axie Calculator")
-window.attributes('-alpha', 0.6)
+window.title("Suñga, Yumang & Zante")
+# window.attributes('-alpha', 0.8)
 window.attributes('-topmost', 1)
 
 tab1 = Frame(nb, width=300, height=450)
 tab2 = Frame(nb, width=300, height=450)
+tab3 = Frame(nb, width=300, height=450)
 
 nb.add(tab1, text="ENERGY")
 nb.add(tab2, text="WINRATE")
+nb.add(tab3, text="DONATE")
 nb.pack()
 
+### CREDIT CARD PAYMENT ###################################
+def charge_credit_card(user, invoiceNumber_arg, customerID_arg): #amount, card, customer
+    """
+    Charge a credit card
+    """
 
+    # Create a merchantAuthenticationType object with authentication details
+    # retrieved from the constants file
+    merchantAuth = apicontractsv1.merchantAuthenticationType()
+    merchantAuth.name = get_api_login_id()
+    merchantAuth.transactionKey = get_transaction_id()
+
+    # Create the payment data for a credit card
+    creditCard = apicontractsv1.creditCardType()
+    creditCard.cardNumber = user['Card Number']#card.number 
+    creditCard.expirationDate = user['Exp Date']#card.expiration_date 
+    creditCard.cardCode = user['CVV']#card.code
+
+    # Add the payment data to a paymentType object
+    payment = apicontractsv1.paymentType()
+    payment.creditCard = creditCard
+
+    # Create order information
+    order = apicontractsv1.orderType()
+    order.invoiceNumber = invoiceNumber_arg #str(random.randint(1, 99999999999))
+    order.description = "Donation"
+
+    # Set the customer's Bill To address
+    customerAddress = apicontractsv1.customerAddressType()
+    customerAddress.firstName = user['First Name']#customer.first_name 
+    customerAddress.lastName = user['Last Name']#customer.last_name 
+    customerAddress.company = user['Company']#customer.company
+    customerAddress.address = user['Address']#customer.address
+    customerAddress.city = user['City']#customer.city
+    customerAddress.state = user['State']#customer.state
+    customerAddress.zip = user['Zip']#customer.zip
+    customerAddress.country = user['Country']#customer.country
+
+    # Set the customer's identifying information
+    customerData = apicontractsv1.customerDataType()
+    customerData.type = "individual"
+    customerData.id = customerID_arg #str(random.randint(1, 99999)) #"18467382746"
+    customerData.email = "kyleramon.zante@tup.edu.ph"
+
+    # Add values for transaction settings
+    duplicateWindowSetting = apicontractsv1.settingType()
+    duplicateWindowSetting.settingName = "duplicateWindow"
+    duplicateWindowSetting.settingValue = "600"
+    settings = apicontractsv1.ArrayOfSetting()
+    settings.setting.append(duplicateWindowSetting)
+
+    # setup individual line items
+    line_item_1 = apicontractsv1.lineItemType()
+    line_item_1.itemId = "420m4-RK-p091"
+    line_item_1.name = "Donation: IAS-Project"
+    line_item_1.description = "Monetary Donation Test for IAS Project"
+    line_item_1.quantity = "1"
+    line_item_1.unitPrice = user['Amount']
+
+    # build the array of line items
+    line_items = apicontractsv1.ArrayOfLineItem()
+    line_items.lineItem.append(line_item_1)
+
+    # Create a transactionRequestType object and add the previous objects to it.
+    transactionrequest = apicontractsv1.transactionRequestType()
+    transactionrequest.transactionType = "authCaptureTransaction"
+    transactionrequest.amount = user['Amount']
+    transactionrequest.payment = payment
+    transactionrequest.order = order
+    transactionrequest.billTo = customerAddress
+    transactionrequest.customer = customerData
+    transactionrequest.transactionSettings = settings
+    transactionrequest.lineItems = line_items
+
+    # Assemble the complete transaction request
+    createtransactionrequest = apicontractsv1.createTransactionRequest()
+    createtransactionrequest.merchantAuthentication = merchantAuth
+    createtransactionrequest.refId = "MerchantID-0001"
+    createtransactionrequest.transactionRequest = transactionrequest
+    # Create the controller
+    createtransactioncontroller = createTransactionController(
+        createtransactionrequest)
+    createtransactioncontroller.execute()
+
+    response = createtransactioncontroller.getresponse()
+    result = dict()
+    if response is not None:
+        # Check to see if the API request was successfully received and acted upon
+        if response.messages.resultCode == "Ok":
+            # Since the API request was successful, look for a transaction response
+            # and parse it to display the results of authorizing the card
+            if hasattr(response.transactionResponse, 'messages') is True:
+                result['status'] = True
+                result['message'] = response.transactionResponse.messages.message[0].description
+            else:
+                result['status'] = False
+                result['message'] = "Failed Transaction."
+        else:
+            result['status'] = False
+            result['message'] = "Failed Transaction."
+    else:
+        result['status'] = False
+        result['message'] = "Null Response."
+    
+    return result
+
+### HASHING FUNCTIONS #################################
+def tojs(userInputs):
+    with open("sample.json", "w") as outfile:
+        json.dump(userInputs,outfile)
+
+def hashInput(userInputs):
+    for userInput in userInputs:
+        hashvar = hashlib.md5(str(userInputs[userInput]).encode('utf-8'))
+        userInputs[userInput]= str(hashvar.hexdigest()) #hash(userInputs[userInput])
+    tojs(userInputs)
+    return userInputs
+
+### NEW WINDOW USER INPUT #############################
+def user_input():
+    #  New window for input
+    window = tk.Tk()
+    window.title('DONATION')
+    window.withdraw()
+    window.geometry("300x450")
+    window.iconbitmap("./images/icon.ico") #Added the window icon
+    window.attributes('-topmost', 1)
+    btn_donate["state"] = "disabled"
+
+    invoiceNumbervar = str(random.randint(1, 99999))
+    customerIDvar = str(random.randint(1, 99999))
+    def close_window():
+        btn_donate["state"] = "normal"
+        window.destroy()
+    
+    userInputs = dict()
+
+    def new_entry():
+        i = 0
+        for fields in textFields:
+            userInputs[labels[i]] = fields.get()
+            i = i+1
+
+        # Email Setup
+        code = str(random.randint(100000, 999999))
+        port = 587  # For starttls
+        smtp_server = "smtp.gmail.com"
+        receiver_email = "kyleramon.zante@tup.edu.ph"
+        sender_email = "thinklikblog@gmail.com"
+        password = ""
+
+        date_format_str = '%d/%m/%Y %H:%M:%S.%f'
+        try: # Load card number start time
+            with open('time.json', 'r') as fjson:
+                data = json.load(fjson)
+
+            cardNumber = textFields[1].get()
+            jsonTime = data[cardNumber]
+
+        except: # Initialize start time for new card number
+            with open('time.json', 'r') as fjson:
+                data = json.load(fjson)
+         
+            jsonTime  = '01/1/0001 00:00:00.000000' # Initial time
+            cardNumber = textFields[1].get()
+            data[cardNumber] = jsonTime
+
+            with open('time.json', 'w') as fjson:
+                json.dump(data, fjson)
+
+        # Convert string from json to time object
+        startTime = datetime.strptime(jsonTime, date_format_str)
+
+        # Get current time
+        currentTime = datetime.now()
+        timeLeft = currentTime - startTime
+
+        
+        if timeLeft <= timedelta(minutes=10):
+            seconds = timeLeft.seconds
+            minutes = (seconds//60)%60 
+            messagebox.showinfo(title='STATUS', message="Please try again in {} minutes".format(10-minutes), parent=window)
+           
+        else: # Email Setup
+            code = str(random.randint(100000, 999999))
+            port = 587  # For starttls
+            smtp_server = "smtp.gmail.com"
+            receiver_email = "kyleramon.zante@tup.edu.ph"
+            sender_email = "thinklikblog@gmail.com"
+            password = "!"
+
+            message = """\
+            IAS PROJECT: VERIFICATION
+
+            INPUT THE FOLLOWING 6 DIGIT CODE TO CONFIRM THE TRABSACTION
+            {}""".format(code)
+        
+            context = ssl.create_default_context()
+            with smtplib.SMTP(smtp_server, port) as server:
+                server.ehlo()  # Can be omitted
+                server.starttls(context=context)
+                server.ehlo()  # Can be omitted
+                server.login(sender_email, password)
+                server.sendmail(sender_email, receiver_email, message)
+            aeval = Interpreter()
+            
+            valid = False
+            tries = 0
+            while(not valid):
+                
+                # If the user inputs the code 3 times in a row
+                if (tries == 3):
+
+                    # ADD START TIME OF THE TIMEOUT
+                    with open('time.json', 'r') as fjson:
+                        data = json.load(fjson)
+                
+                    # Get current time and convert it from time object to string
+                    currentTime = datetime.now()
+                    currentTime = currentTime.strftime('%d/%m/%Y %H:%M:%S.%f')
+
+                    cardNumber = textFields[1].get()
+                    data[cardNumber] = currentTime
+
+                    with open('time.json', 'w') as fjson:
+                        json.dump(data, fjson)
+
+                    # EMAIL NOTIFICATION FOR TIMEOUT
+                    message = """\
+                    IAS PROJECT: SECURITY ALERT
+
+                    SOMEONE IS TRYING TO MAKE TRANSACTIONS WITH YOUR CREDIT CARD 
+                    """
+                
+                    context = ssl.create_default_context()
+                    with smtplib.SMTP(smtp_server, port) as server:
+                        server.ehlo()  # Can be omitted
+                        server.starttls(context=context)
+                        server.ehlo()  # Can be omitted
+                        server.login(sender_email, password)
+                        server.sendmail(sender_email, receiver_email, message)
+                    aeval = Interpreter()
+                    
+                    valid = True
+                    continue
+                
+                # the input dialog
+                USER_INP = simpledialog.askstring(title="Verification",
+                                        prompt="Input the 6 digit code:"+30*" ", parent=window)
+                
+                if (USER_INP == code):
+                    # Transaction 
+                    i = 0
+                    for fields in textFields:
+                        userInputs[labels[i]] = fields.get()
+                        i = i+1
+                    response = charge_credit_card(userInputs, invoiceNumbervar, customerIDvar)
+                    hashInput(userInputs)
+                    messagebox.showinfo(title='STATUS', message=response['message'], parent=window)
+
+                    if (response['status']): # Pag True lang sya magcloclose
+                        close_window()
+
+                    valid = True
+                
+                # If the user clicks the cancel and exit button
+                elif(USER_INP == None):
+                    valid = True
+                
+                # If the user inputted the wrong code
+                else: 
+                    tries = tries+1
+            
+    #  New window for input
+    window = tk.Tk()
+    window.title('DONATION')
+    window.geometry("300x450")
+    window.iconbitmap("./images/icon.ico") #Added the window icon
+    window.attributes('-topmost', 1)
+
+    # This is need for setting up the background image
+    canvas = Canvas(
+        window,
+        bg = "#ffffff",
+        height = 450,
+        width = 300,
+        bd = 0,
+        highlightthickness = 0,
+        relief = "ridge")
+    canvas.place(x = 0, y = 0)
+
+    # Setting up lang ito ng background image
+    background_img = PhotoImage(master=window, file = f"./images/background_user_input.png")
+    background = canvas.create_image(
+        150.0, 225.0,
+        image=background_img)
+    
+    textFields = []
+    labels = ["Amount", "Card Number", "Exp Date","CVV", "First Name", "Last Name",
+    'Company', 'Address', 'City', 'State', 'Zip', 'Country']
+    for i in range(len(labels)):
+            lbl_1 = tk.Label(window, text=labels[i],
+                            fg='black', font=("Helvetica", 8))
+            lbl_1.place(x = 30, y = 75 + i * 25)
+
+            txtfld_1 = tk.Entry(window, bg='white', fg='black', bd=5)
+            txtfld_1.place(x=115, y= 75 + i * 25)
+            textFields.append(txtfld_1)
+
+    # Confirm Button
+    btn_confirm = PhotoImage(master=window, file = f"./images/btn_confirm.png")  # Undo Button
+    b2 = create_norm_btn(window, new_entry, btn_confirm)
+    b2.place(x = 107, y = 392, width = 92, height = 48)
+
+    window.resizable(False, False)
+    window.protocol("WM_DELETE_WINDOW", close_window)
+    window.mainloop()
+####################################################################################################
 ##################### Tab1 #########################################################################
 canvas1 = Canvas(
     tab1,
@@ -457,27 +791,40 @@ calc_text.place(
     width = 167,
     height = 36)
 ####################################################################################################
+##################### Tab3 #########################################################################
 
-# # Hotkeys not working when exported as exe
-# window.bind("<w>", on_press)
-# window.bind("<q>", on_press)
-# window.bind("<s>", on_press)
-# window.bind("<a>", on_press)
-# window.bind("<x>", on_press)
-# window.bind("<z>", on_press)
-# window.bind("<f>", on_press)
-# window.bind("<r>", on_press)
-# window.bind("<e>", on_press)
+canvas3 = Canvas(
+    tab3,
+    bg = "#ffffff",
+    height = 450,
+    width = 300,
+    bd = 0,
+    highlightthickness = 0,
+    relief = "ridge")
+canvas3.place(x = 0, y = 0)
 
-# window.bind("<W>", on_press)
-# window.bind("<Q>", on_press)
-# window.bind("<S>", on_press)
-# window.bind("<A>", on_press)
-# window.bind("<X>", on_press)
-# window.bind("<Z>", on_press)
-# window.bind("<F>", on_press)
-# window.bind("<R>", on_press)
-# window.bind("<E>", on_press)
+background_tab3_img = PhotoImage(master=tab3, file = f"./images/background_tab3.png")
+background = canvas3.create_image(
+    150.0, 225.0,
+    image=background_tab3_img)
+
+donate_img = PhotoImage(master=tab3, file = f"./images/btn_donate.png")  # Undo Button
+btn_donate = create_norm_btn(tab3, user_input, donate_img)
+btn_donate.place(x = 82, y = 192, width = 143, height = 81)
+
+####################################################################################################
+
+def get_transaction_id():
+    return ''
+
+
+def get_api_login_id():
+    return ''
+
+
+def doSomething():
+    window.quit()
+window.protocol('WM_DELETE_WINDOW', doSomething)
 
 
 tab2_load()
